@@ -98,10 +98,11 @@ nothing answers on Kopuz's socket.
 
 ### Windows
 
-`scripts/package-windows.ps1` builds kopuzd at the pinned Kopuz tag into
-`target/kopuzd`, then runs `nd package windows`, which ships it beside
+`scripts/package-windows.ps1` builds kopuzd at the pinned Kopuz rev into
+`target/kopuzd` and the `nd` CLI at the NativeDesktop rev in `Cargo.lock`, then
+runs `nd package windows`, which ships it beside
 `formalmusic.exe` in a Velopack `Setup.exe` under `target/nd/package/windows`. Needs
-the `nd` CLI and the .NET SDK (for Velopack's `vpk`).
+the .NET SDK (for Velopack's `vpk`).
 
 ## Signing in
 
