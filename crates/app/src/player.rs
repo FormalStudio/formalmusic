@@ -1,5 +1,6 @@
-//! The bar along the bottom: nd's `player_bar` over the daemon's playback, the rating and
-//! track menu beside the playing song, repeat, shuffle, queue and expand at the trailing end. The bar extrapolates the position itself, so
+//! The bar along the bottom: nd's `player_bar` over the daemon's playback in the platform's
+//! layout, the rating and track menu beside the playing song, repeat and shuffle, the queue and
+//! expand where the platform's player keeps them. The bar extrapolates the position itself, so
 //! a playing track costs one render per position report, not one per frame.
 
 use std::time::Duration;
@@ -224,20 +225,30 @@ impl Render for Player {
                 .trailing(control(lyrics).into_any_element())
                 .trailing(control(queue).into_any_element())
         } else {
-            bar.accessory(like.into_any_element())
+            let bar = bar
+                .accessory(like.into_any_element())
                 .accessory(dislike.into_any_element())
-                .accessory(more.into_any_element())
-                .trailing(repeat_button.into_any_element())
-                .trailing(shuffle_button.into_any_element())
-                .trailing(queue.into_any_element())
+                .accessory(more.into_any_element());
+            // Media Player keeps shuffle and repeat around the transport.
+            let bar = if layout == TransportLayout::Centered {
+                bar.before_transport(shuffle_button.into_any_element())
+                    .after_transport(repeat_button.into_any_element())
+            } else {
+                bar.trailing(repeat_button.into_any_element())
+                    .trailing(shuffle_button.into_any_element())
+            };
+            bar.trailing(queue.into_any_element())
                 .open_button(expand.into_any_element())
         }
         .w_full();
-        let docked = layout != TransportLayout::Pill;
         div()
             .id("player")
             .w_full()
-            .when(docked, |bar| bar.px_4().pt_1().pb_2())
+            .when(layout == TransportLayout::Toolbar, |bar| bar.px_3().py_2())
+            .when(
+                matches!(layout, TransportLayout::Full | TransportLayout::Centered),
+                |bar| bar.px_4().pt_1().pb_2(),
+            )
             .child(bar)
             .when_some(menu_track, |bar, track| {
                 bar.context_menu(move |menu, _, cx| {
