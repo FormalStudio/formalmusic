@@ -324,25 +324,13 @@ fn launch(signed_out: bool, run: impl FnOnce(&Session, &Shots)) {
 
 fn signed_in() {
     launch(false, |app, shots| {
-        expect(&app.get_by_test_id("chips"))
-            .to_be_visible()
-            .expect("Home shows");
+        // Home's first shelf after Quick picks: a card's own frame comes back relative to its
+        // shelf's scroll view, so aim from the shelf: the first card's 168 pt artwork sits above
+        // its two 30 pt text lines.
+        let shelf = app.get_by_test_id("shelf-1");
+        expect(&shelf).to_be_visible().expect("Home shows a shelf of cards");
         shots.take(app, "1-home");
-        // A card's own frame comes back relative to its shelf's scroll view, so aim from the
-        // shelf: the first card's 168 pt artwork sits above its two 30 pt text lines.
-        let b = (0..8)
-            .find_map(|s| {
-                app.get_by_test_id(&format!("shelf-{s}"))
-                    .bounding_box()
-                    .ok()
-                    .flatten()
-            })
-            .expect("Home shows a shelf of cards");
-        for s in 0..8 {
-            for id in [format!("shelf-{s}"), format!("shelf-{s}.0")] {
-                eprintln!("BOXDBG {id} {:?}", app.get_by_test_id(&id).bounding_box());
-            }
-        }
+        let b = shelf.bounding_box().expect("bounds").expect("laid out");
         point_at(app, shots, b.x + 84., b.y + b.height - 60. - 84.);
         std::thread::sleep(Duration::from_millis(400));
         shots.take(app, "1-home-card-hover");

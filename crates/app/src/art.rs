@@ -1,19 +1,18 @@
 //! Artwork for `image()`. nd's pipeline fetches, decodes at display size and keeps the LRU; this
-//! picks the URL a box of a given size should ask for, paints the demo set's covers, and has the
-//! store's [`ArtCache`] fetch Kopuz's artwork, which the daemon serves as bytes, not URLs.
+//! picks the URL a box of a given size should ask for, and has the store's [`ArtCache`] paint the
+//! demo set's covers and fetch Kopuz's artwork, which the daemon serves as bytes, not URLs.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::{Arc, OnceLock};
 
 use formalmusic_api::Thumbnail;
-use formalmusic_core::art::{ArtCache, DEMO_SCHEME, KOPUZ_SCHEME, demo_art, url_for};
+use formalmusic_core::art::{ArtCache, DEMO_SCHEME, KOPUZ_SCHEME, url_for};
 use nd::prelude::*;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
 thread_local! {
-    static DEMO: RefCell<HashMap<String, Arc<[u8]>>> = RefCell::new(HashMap::new());
-    /// Kopuz artwork asked for this run, landed or not, so a failure is not asked for again
+    /// Demo and Kopuz artwork asked for this run, landed or not, so a failure is not asked for again
     /// on every frame.
     static ASKED: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
 }
@@ -38,22 +37,15 @@ pub fn install(_cx: &mut App, cache: Arc<ArtCache>, runtime: tokio::runtime::Han
 pub fn source(thumbnails: &[Thumbnail], points: f32) -> Option<ImageSource> {
     // Asked for at twice the box, so it is sharp on a Retina or 2x display.
     let url = url_for(thumbnails, (points * 2.) as u32)?;
-    if let Some(seed) = url.strip_prefix(DEMO_SCHEME) {
-        let bytes = DEMO.with(|demo| {
-            demo.borrow_mut()
-                .entry(seed.to_owned())
-                .or_insert_with(|| demo_art(seed).into())
-                .clone()
-        });
-        return Some(ImageSource::bytes(url, bytes));
-    }
-    if url.starts_with(KOPUZ_SCHEME) {
-        return kopuz(url);
+    // Demo covers are painted off the main thread, as Kopuz's are fetched: Home asks for dozens
+    // on its first frame, and painting them there held the window empty for over a second.
+    if url.starts_with(DEMO_SCHEME) || url.starts_with(KOPUZ_SCHEME) {
+        return cached(url);
     }
     Some(ImageSource::url(url))
 }
 
-fn kopuz(url: String) -> Option<ImageSource> {
+fn cached(url: String) -> Option<ImageSource> {
     let daemon = DAEMON.get()?;
     let path = daemon.cache.path_for(&url);
     if path.is_file() {
