@@ -27,6 +27,10 @@ at 0% CPU.
 | ![Album](docs/images/album.png) | ![Lyrics](docs/images/lyrics.png) |
 | ![Search](docs/images/search.png) | ![Queue](docs/images/queue.png) |
 
+On Linux, with the Adwaita look:
+
+![Home on Linux](docs/images/linux-home.png)
+
 ## Features
 
 - Home with mood chips, Explore (new releases, charts, moods and genres),
