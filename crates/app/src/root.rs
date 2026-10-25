@@ -61,9 +61,9 @@ pub const CONTEXT: &str = "FormalMusic";
 const KEYS: &str = "FormalMusic && !searching";
 /// Pages kept alive for back and forward, with their scroll positions.
 const KEEP_PAGES: usize = 8;
-/// Black over the expanded player's blurred cover. Sized for a white cover under Adwaita's
-/// selected segment, a white wash over the backdrop: at 0.6 its white label fell to 3.9:1.
-const BACKDROP_SCRIM: f32 = 0.7;
+/// Black over the expanded player's blurred cover. Sized for a white cover under the player's
+/// secondary text (white at 55%): at 0.7 the artist line and unlit lyrics fell to 3.9:1.
+const BACKDROP_SCRIM: f32 = 0.8;
 
 pub fn bind_keys(cx: &mut App) {
     let secondary = |key: &str| format!("secondary-{key}");
