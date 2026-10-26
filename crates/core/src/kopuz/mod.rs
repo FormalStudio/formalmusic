@@ -1412,10 +1412,14 @@ fn maybe_spawn(shared: &Shared) {
         }
         *last = Some(Instant::now());
     }
-    let beside = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|dir| dir.to_owned()))
-        .filter(|dir| dir.join(format!("kopuzd{}", std::env::consts::EXE_SUFFIX)).is_file());
+    // current_exe resolves symlinks, so a profile of links (fspec's /opt/fspec/current/bin)
+    // only shows up through the path the window was started as.
+    let beside = [std::env::current_exe().ok(), std::env::args_os().next().map(PathBuf::from)]
+        .into_iter()
+        .flatten()
+        .filter(|exe| exe.is_absolute())
+        .filter_map(|exe| exe.parent().map(|dir| dir.to_owned()))
+        .find(|dir| dir.join(format!("kopuzd{}", std::env::consts::EXE_SUFFIX)).is_file());
     let mut command = formalmusic_api::process::command(match &beside {
         Some(dir) => dir.join(format!("kopuzd{}", std::env::consts::EXE_SUFFIX)),
         None => "kopuzd".into(),
