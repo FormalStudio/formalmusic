@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Regenerates the README screenshots: Home on the demo catalog (FORMALMUSIC_DEMO=1), dark, at
+# 1280x820: docs/shots/<os>.png. Runs from the macbook.
+#
+#   scripts/shots macos|linux|windows|all
+#
+# macos builds here and captures through NativeDesktop's scripts/mac/shoot. linux builds on g815
+# in this repo's dev shell, into $ND_LINUX_BUILD_ROOT (default ~/build/nd-shots on g815's root
+# disk), under nd's build lock, and shoots through scripts/linux-headless.sh. windows builds in
+# the g815 Windows guest, or on $ND_WINDOWS_HOST, and captures through scripts/windows/vm.
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+nd=${ND_FRAMEWORK_DIR:-"$HOME/Developer/ecosystem/nativedesktop"}
+mac="$nd/scripts/mac/shoot"
+vm="$nd/scripts/windows/vm"
+shots="$root/docs/shots"
+quiet='post-quantum|store now|openssh.com/pq'
+mkdir -p "$shots"
+
+macos() {
+  (cd "$root" && CARGO_BUILD_JOBS=2 taskpolicy -c utility cargo build -q -p formalmusic --bin formalmusic)
+  "$mac" "$(cd "$root" && cargo metadata -q --format-version 1 | jq -r .target_directory)/debug/formalmusic" "$shots/macos.png" \
+    --env FORMALMUSIC_DEMO=1 --settle 5
+}
+
+linux() {
+  local host=${ND_LINUX_HOST:-g815}
+  local build=${ND_LINUX_BUILD_ROOT:-/home/kyandesutter/build/nd-shots}
+  local limit=${ND_LINUX_GATE_TIMEOUT_MIN:-120}
+  local lane=Developer/formalmusic-shots
+  rsync -az --delete --exclude target --exclude .git --exclude .direnv "$root/" "$host:$lane/"
+  # The flock is the one nd's and messages' linux-gate take: one build at a time on the host.
+  local body="set -e
+t=$build/targets/formalmusic
+mkdir -p ~/.cache/nd-build/profiles \$t
+cd ~/$lane
+printf 'appearance = \"dark\"\n' > \$t/theme.toml
+rm -rf \$t/shot-data && mkdir -p \$t/shot-data
+timeout --kill-after=30 ${limit}m nice -n 19 ionice -c3 nix develop --profile ~/.cache/nd-build/profiles/formalmusic-shots path:. -c \
+  env CARGO_TARGET_DIR=\$t CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 bash -c '
+    cargo build -q -p formalmusic --bin formalmusic &&
+    FORMALMUSIC_DEMO=1 ND_THEME_TOML=\$CARGO_TARGET_DIR/theme.toml ND_APP_DATA_DIR=\$CARGO_TARGET_DIR/shot-data \
+      HEADLESS_SIZE=1280x820 scripts/linux-headless.sh \$CARGO_TARGET_DIR/debug/formalmusic \$CARGO_TARGET_DIR/linux.png 3'"
+  ssh "$host" "bash -lc $(printf %q "flock -o ~/.cache/nd-build/build.lock bash -c $(printf %q "$body")")" 2>&1 |
+    { grep -Ev "$quiet" || true; }
+  scp -q "$host:$build/targets/formalmusic/linux.png" "$shots/linux.png"
+}
+
+windows() {
+  local src='C:\nd\shots\formalmusic'
+  "$vm" start
+  "$vm" wait
+  "$vm" lock
+  trap '"$vm" unlock' EXIT
+  "$vm" src "$root" "$src"
+  "$vm" cargo "$src" build -p formalmusic --bin formalmusic
+  "$vm" shoot "$src\\target\\debug\\formalmusic.exe" "$shots/windows.png" --env FORMALMUSIC_DEMO=1 --settle 5 --size 1280x820
+}
+
+case "${1:-}" in
+  macos | linux | windows) "$1" ;;
+  all) macos && linux && windows ;;
+  *)
+    sed -n '2,10p' "$0"
+    exit 2
+    ;;
+esac

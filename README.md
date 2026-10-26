@@ -7,7 +7,7 @@ YouTube Music on Linux, macOS and Windows. A native Rust client on
 elsewhere) on top of the [Kopuz](https://github.com/Kopuz-org/kopuz) daemon, with
 synced lyrics and Apple Music motion artwork.
 
-![Home](docs/images/home.png)
+![Home on the demo catalog on macOS, in dark mode](docs/shots/macos.png)
 
 ```
 ┌──────────────────────┐     gRPC      ┌────────────────────────────────┐
@@ -27,9 +27,13 @@ at 0% CPU.
 | ![Album](docs/images/album.png) | ![Lyrics](docs/images/lyrics.png) |
 | ![Search](docs/images/search.png) | ![Queue](docs/images/queue.png) |
 
-On Linux, with the Adwaita look:
+On Linux with the Adwaita look, and on Windows:
 
-![Home on Linux](docs/images/linux-home.png)
+| | |
+|---|---|
+| ![Home on the demo catalog on Linux](docs/shots/linux.png) | ![Home on the demo catalog on Windows](docs/shots/windows.png) |
+
+`scripts/shots macos|linux|windows|all` regenerates these from the demo catalog.
 
 ## Features
 

@@ -6,7 +6,8 @@
 #   scripts/linux-headless.sh <binary> <out.png> [seconds]
 #
 # Prints the socket, pid, RSS in KB and one CPU% sample per second, then
-# writes the screenshot. Extra env (FORMALMUSIC_DEMO=1) passes through.
+# writes the screenshot. Extra env (FORMALMUSIC_DEMO=1) passes through. HEADLESS_SIZE sets the
+# output, which the one tiled window fills (default 1400x900).
 set -euo pipefail
 
 bin=$1
@@ -16,7 +17,7 @@ export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
 unset DISPLAY
 
 dir=$(mktemp -d)
-printf 'output HEADLESS-1 resolution 1400x900\ndefault_border none\n' > "$dir/sway.conf"
+printf 'output HEADLESS-1 resolution %s\ndefault_border none\n' "${HEADLESS_SIZE:-1400x900}" > "$dir/sway.conf"
 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WAYLAND_DISPLAY= \
   nix shell nixpkgs#sway -c sway -d -c "$dir/sway.conf" > "$dir/sway.log" 2>&1 &
 sway_pid=$!
