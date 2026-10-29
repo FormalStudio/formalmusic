@@ -17,6 +17,7 @@ pub mod tray;
 pub mod video;
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use formalmusic_core::art::ArtCache;
 use formalmusic_core::cache::{CachedState, StateCache};
@@ -134,6 +135,10 @@ pub fn init(cx: &mut App, music: Music) -> WindowHandle<Root> {
     open_window(cx)
 }
 
+/// Set when the app exits because its last window closed with keep playing on. Any other exit
+/// (Quit in the tray or the app menu) is a quit, and pauses the daemon.
+static PLAY_ON_AFTER_EXIT: AtomicBool = AtomicBool::new(false);
+
 /// The main window's id, while it is open.
 struct MainWindow(nd::core::WindowId);
 
@@ -145,12 +150,16 @@ fn open_window(cx: &mut App) -> WindowHandle<Root> {
             .min_size(size(px(880.), px(560.))),
         |window, cx| {
             // Behind the tray the app outlives the window, so closing it pauses here rather than
-            // at exit, unless the settings say to keep playing.
+            // at exit, unless the settings say to keep playing. Without the tray the app exits
+            // with the window, and only that exit honours the setting.
             window.on_should_close(|_, cx| {
-                if tray::keeps_running(cx)
-                    && !settings::current(cx).window.keep_playing_when_closed
-                {
-                    store(cx).pause();
+                let keep_playing = settings::current(cx).window.keep_playing_when_closed;
+                if tray::keeps_running(cx) {
+                    if !keep_playing {
+                        store(cx).pause();
+                    }
+                } else {
+                    PLAY_ON_AFTER_EXIT.store(keep_playing, Ordering::Relaxed);
                 }
                 true
             });
@@ -204,7 +213,7 @@ pub fn run() -> nd::Result<()> {
     };
     let preloaded = preload.and_then(|thread| thread.join().ok()).flatten();
     let store = build_store(&runtime, preloaded);
-    let (closing, keep_playing) = (store.clone(), settings.clone());
+    let closing = store.clone();
     app().run(move |cx| {
         init(
             cx,
@@ -219,9 +228,9 @@ pub fn run() -> nd::Result<()> {
         }
         tray::install(cx);
     })?;
-    // Quitting pauses the daemon unless the settings say to keep playing; it has to reach the
-    // daemon before the process exits, so this waits for the answer.
-    if !keep_playing.is_some_and(|s| s.get().window.keep_playing_when_closed) {
+    // kopuzd outlives the process, so the pause has to reach it before exit: this waits for the
+    // answer.
+    if !PLAY_ON_AFTER_EXIT.load(Ordering::Relaxed) {
         closing.pause_blocking(std::time::Duration::from_millis(500));
     }
     Ok(())

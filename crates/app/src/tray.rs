@@ -118,12 +118,8 @@ fn chosen(item: Option<&str>, cx: &mut App) {
         Some("toggle") => store.toggle(),
         Some("next") => store.next(),
         Some("previous") => store.previous(),
-        Some("quit") => {
-            if !crate::settings::current(cx).window.keep_playing_when_closed {
-                store.pause();
-            }
-            cx.quit();
-        }
+        // The exit in `run` pauses the daemon.
+        Some("quit") => cx.quit(),
         _ => {}
     }
 }
